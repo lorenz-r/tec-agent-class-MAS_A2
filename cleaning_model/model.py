@@ -56,11 +56,17 @@ class CleaningModel(mesa.Model):
 
         if self.step_count >= self.max_steps:
             self.running = False
-        
+
         self.datacollector.collect(self)
 
     def summary(self):
-        pass
+        summary_content = {
+            "CleaningPercentage": 100 * (1 - self.n_dirty() / self.n_cells),
+            "TotalMoves": self.agents.agg("moves", sum),
+            "FullCleaningTime": self.full_cleaning_time,
+        }
+
+        return summary_content
 
     def run(self):
 
