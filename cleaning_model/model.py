@@ -56,6 +56,8 @@ class CleaningModel(mesa.Model):
 
         if self.step_count >= self.max_steps:
             self.running = False
+        
+        self.datacollector.collect(self)
 
     def summary(self):
         pass
