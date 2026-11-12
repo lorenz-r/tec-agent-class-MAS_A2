@@ -3,6 +3,7 @@ import numpy as np
 from agents import CleaningAgent
 
 
+
 class CleaningModel(mesa.Model):
     def __init__(self, width, height, n_agents, max_steps, dirty_pct):
         super().__init__()
@@ -27,6 +28,21 @@ class CleaningModel(mesa.Model):
         self.step_count = 0
 
         self.full_cleaning_time = 0 if (self.init_dirty == 0) else None
+
+        # Data collection
+        self.datacollector = mesa.DataCollector(
+            model_reporters={
+                "CleaningPercentage": lambda m: 100 * (1 - m.n_dirty() / m.n_cells),
+                "DirtyCells": self.n_dirty,
+                "TotalMoves": lambda m: m.agents.agg("moves", sum),
+                "FullCleaningTime": "full_cleaning_time",
+            },
+            agent_reporters={
+                "Moves": "moves",
+            },
+        )
+        # Initial state
+        self.datacollector.collect(self)
 
     def n_dirty(self):
         return int(self.grid.dirty.data.sum())
