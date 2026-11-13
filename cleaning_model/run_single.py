@@ -25,5 +25,5 @@ if __name__ == "__main__":
     results = model.run()
     print(results)
     model.datacollector.get_agent_vars_dataframe().to_csv(RESULTS_DIR / "agent_test_results.csv")
-    model.datacollector.get_model_vars_dataframe().to_csv(RESULTS_DIR / "model_test_results.csv", index_label="Step"
-                                                          
+    model.datacollector.get_model_vars_dataframe().to_csv(RESULTS_DIR / "model_test_results.csv", index_label="Step")
+    
