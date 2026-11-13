@@ -3,10 +3,9 @@ import numpy as np
 from agents import CleaningAgent
 
 
-
 class CleaningModel(mesa.Model):
-    def __init__(self, width, height, n_agents, max_steps, dirty_pct):
-        super().__init__()
+    def __init__(self, width, height, n_agents, max_steps, dirty_pct, seed=None):
+        super().__init__(rng=np.random.default_rng(seed=seed))
 
         self.grid = mesa.discrete_space.OrthogonalMooreGrid(
             (width, height), capacity=None, random=self.random
@@ -18,9 +17,7 @@ class CleaningModel(mesa.Model):
         self.n_cells = width * height
         self.init_dirty = round(dirty_pct * self.n_cells)
         self.grid.create_property_layer("dirty", default_value=False, dtype=bool)
-        dirty_idxs = np.random.Generator.choice(
-            self.n_cells, size=self.initial_dirty, replace=False
-        )
+        dirty_idxs = self.rng.choice(self.n_cells, size=self.init_dirty, replace=False)
         self.grid.dirty.data.flat[dirty_idxs] = True
 
         CleaningAgent.create_agents(self, n_agents)
@@ -28,6 +25,9 @@ class CleaningModel(mesa.Model):
         self.step_count = 0
 
         self.full_cleaning_time = 0 if (self.init_dirty == 0) else None
+
+        if self.full_cleaning_time is not None:
+            self.running = False
 
         # Data collection
         self.datacollector = mesa.DataCollector(
@@ -51,10 +51,10 @@ class CleaningModel(mesa.Model):
         self.agents.shuffle_do("step")
         self.step_count += 1
 
-        if self.full_cleaning_time is None and self.n_dirty == 0:
+        if self.full_cleaning_time is None and (self.n_dirty() == 0):
             self.full_cleaning_time = self.step_count
 
-        if self.step_count >= self.max_steps:
+        if self.full_cleaning_time is not None or self.step_count >= self.max_steps:
             self.running = False
 
         self.datacollector.collect(self)
@@ -73,4 +73,4 @@ class CleaningModel(mesa.Model):
         while self.running:
             self.step()
 
-        return self.summary
+        return self.summary()
