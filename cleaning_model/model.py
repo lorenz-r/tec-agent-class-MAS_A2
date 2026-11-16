@@ -1,6 +1,10 @@
 import mesa
 import numpy as np
 from agents import CleaningAgent
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 class CleaningModel(mesa.Model):
