@@ -107,9 +107,21 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
 
     summary_df.to_csv(RESULTS_DIR / "experiment_summary.csv", index=False)
 
-    # print_statistics(df, summary_df)
-
     return summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR
+
+
+# Purpose: save a figure as PNG (if a folder is given), then show it or close it.
+# Parameters: fig, matplotlib figure to finish, RESULTS_DIR, folder where the PNG is saved (None = do not save),
+#             fileName, name of the PNG file, show_plot, True to show the figure, False to close it.
+# Returns: nothing.
+def finish_figure(fig, RESULTS_DIR, fileName, show_plot):
+    if RESULTS_DIR:
+        fig.savefig(RESULTS_DIR / fileName)
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 # Purpose: bar chart of the average steps until clean versus the number of robots.
@@ -119,7 +131,7 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
 def plot_average_steps(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
-    plt.figure(figsize=(8, 5))
+    fig = plt.figure(figsize=(8, 5))
 
     plt.bar(summary_df["n_agents"], summary_df["AverageSteps"])
 
@@ -130,13 +142,7 @@ def plot_average_steps(
     plt.grid(axis="y", alpha=0.3)
 
     plt.tight_layout()
-    if RESULTS_DIR:
-        plt.savefig(RESULTS_DIR / "average_steps.png")
-
-    if show_plot:
-        plt.show()
-    else:
-        plt.close()
+    finish_figure(fig, RESULTS_DIR, "average_steps.png", show_plot)
 
 
 # Purpose: bar chart of the average total moves versus the number of robots.
@@ -146,7 +152,7 @@ def plot_average_steps(
 def plot_average_movements(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
-    plt.figure(figsize=(8, 5))
+    fig = plt.figure(figsize=(8, 5))
 
     plt.bar(summary_df["n_agents"], summary_df["AverageMoves"])
 
@@ -157,17 +163,12 @@ def plot_average_movements(
     plt.grid(axis="y", alpha=0.3)
 
     plt.tight_layout()
-    if RESULTS_DIR:
-        plt.savefig(RESULTS_DIR / "average_movements.png")
-    if show_plot:
-        plt.show()
-    else:
-        plt.close()
+    finish_figure(fig, RESULTS_DIR, "average_movements.png", show_plot)
 
 
 # Purpose: draw boxplots of the cleaning time from the quartiles stored in summary_df.
-# Parameters: summary_df, summary table; AGENT_CONFIGURATIONS, X axis values,
-#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Parameters: summary_df, summary table; AGENT_CONFIGURATIONS, unused here (kept so the call
+#             matches the other plot functions), RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
 # Returns: nothing.
 def plot_time_distribution(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
@@ -206,8 +207,7 @@ def plot_time_distribution(
     ax.set_title(
         "Distribution of Cleaning Time (box = quartiles, whiskers = min/max, diamond = mean)"
     )
-    # finish(fig, RESULTS_DIR, "time_distribution.png", show_plot)
-    plt.show()
+    finish_figure(fig, RESULTS_DIR, "time_distribution.png", show_plot)
 
 
 # Purpose: plot the speedup T(1)/T(k) and the efficiency (speedup / k) versus the number of robots.
@@ -261,8 +261,7 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
     ax2.set_xlabel("Number of Robots")
     ax2.set_ylabel("Efficiency  speedup / k")
     ax2.set_title("Efficiency (1 = every robot fully useful)")
-    # _finish(fig, RESULTS_DIR, "speedup_efficiency.png", show_plot)
-    plt.show()
+    finish_figure(fig, RESULTS_DIR, "speedup_efficiency.png", show_plot)
 
 
 # Purpose: plot the failed move attempts (wall bumps and moves blocked by another robot).
@@ -295,8 +294,7 @@ def plot_failed_moves(
     ax.set_ylabel("Failed moves per run (mean)")
     ax.set_title("Failed Move Attempts: Walls vs Congestion")
     ax.legend()
-    # _finish(fig, RESULTS_DIR, "failed_moves.png", show_plot)
-    plt.show()
+    finish_figure(fig, RESULTS_DIR, "failed_moves.png", show_plot)
 
 
 # Purpose: plot the final % of clean cells per robot count, one line per step limit.
@@ -337,13 +335,13 @@ def plot_cleaning_percentage_comparison(
     ax.set_ylabel("Clean cells at the end (%)")
     ax.set_title("Final Cleaning Percentage vs Number of Robots (mean, 95% CI)")
     ax.legend(loc="lower right")
-    # _finish(fig, RESULTS_DIR, "cleaning_percentage_comparison.png", show_plot)
-    plt.show()
+    finish_figure(fig, RESULTS_DIR, "cleaning_percentage_comparison.png", show_plot)
 
 
 # Purpose: draw a heatmap of the final % of clean cells per step limit (rows) and robot count (columns).
 # Parameters: summaries, list of summary tables (one per step limit), AGENT_CONFIGURATIONS,
-#             RESULTS_DIR and show_plot, unused for now (kept for compatibility).
+#             unused here (kept so the call matches the other plot functions),
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
 # Returns: nothing.
 def plot_cleaning_percentage_heatmap(
     summaries, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
@@ -399,12 +397,12 @@ def plot_cleaning_percentage_heatmap(
     colorbar = fig.colorbar(image, ax=ax, fraction=0.04, pad=0.02)
     colorbar.set_label("Clean cells (%)")
     colorbar.outline.set_visible(False)
-    plt.show()
+    finish_figure(fig, RESULTS_DIR, "cleaning_percentage_heatmap.png", show_plot)
 
 
 if __name__ == "__main__":
     AGENT_CONFIGURATIONS = [1, 2, 4, 8]
     MAX_STEPS = 50_000
-    df, agent_config, results_dir = run_experiments()
+    df, agent_config, results_dir = run_experiments(AGENT_CONFIGURATIONS, MAX_STEPS)
     plot_average_steps(df, agent_config, results_dir)
     plot_average_movements(df, agent_config, results_dir)

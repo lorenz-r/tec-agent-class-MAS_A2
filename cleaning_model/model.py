@@ -10,10 +10,6 @@
 import mesa
 import numpy as np
 from agents import CleaningAgent
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 class CleaningModel(mesa.Model):
@@ -42,7 +38,7 @@ class CleaningModel(mesa.Model):
 
         self.step_count = 0
 
-        self.full_cleaning_time = 0 if (self.init_dirty == 0) else None
+        self.full_cleaning_time = 0 if self.init_dirty == 0 else None
 
         if self.full_cleaning_time is not None:
             self.running = False
@@ -76,7 +72,7 @@ class CleaningModel(mesa.Model):
         self.agents.shuffle_do("step")
         self.step_count += 1
 
-        if self.full_cleaning_time is None and (self.n_dirty() == 0):
+        if self.full_cleaning_time is None and self.n_dirty() == 0:
             self.full_cleaning_time = self.step_count
 
         if self.full_cleaning_time is not None or self.step_count >= self.max_steps:
