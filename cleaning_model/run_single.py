@@ -24,9 +24,9 @@ if __name__ == "__main__":
     model = CleaningModel(
         width=WIDTH,
         height=HEIGHT,
-        n_agents=N_AGENTS,
-        max_steps=MAX_STEPS,
-        dirty_pct=DIRTY_PCT,
+        numAgents=N_AGENTS,
+        maxSteps=MAX_STEPS,
+        dirtyPct=DIRTY_PCT,
     )
     results = model.run()
     print(results)

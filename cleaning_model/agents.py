@@ -23,8 +23,8 @@ class CleaningAgent(CellAgent):
         super().__init__(model)
         self.cell = model.grid[(0, 0)]
         self.moves = 0
-        self.wall_bumps = 0
-        self.blocked_moves = 0
+        self.wallBumps = 0
+        self.blockedMoves = 0
 
     # Purpose: run one step; clean the current cell if it is dirty, otherwise move.
     # Parameters: none.
@@ -45,11 +45,11 @@ class CleaningAgent(CellAgent):
         width, height = self.model.grid.dimensions
         nx, ny = x + dx, y + dy
         if not (0 <= nx < width and 0 <= ny < height):
-            self.wall_bumps += 1
+            self.wallBumps += 1
             return  # wall: stay in place
         target = self.model.grid[(nx, ny)]
         if not target.is_empty:
-            self.blocked_moves += 1
+            self.blockedMoves += 1
             return  # if occupied by another agent, stay in place
         self.cell = target
         self.moves += 1
