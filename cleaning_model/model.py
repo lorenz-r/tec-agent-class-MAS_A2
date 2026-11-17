@@ -65,20 +65,31 @@ class CleaningModel(mesa.Model):
     def n_dirty(self):
         return int(self.grid.dirty.data.sum())
 
-    # Purpose: advance one step, record when everything became clean, decide whether to stop and collect data.
+    # Purpose: advance the simulation one step: every agent acts, the stop state is updated and data is collected.
     # Parameters: none.
     # Returns: nothing.
     def step(self):
         self.agents.shuffle_do("step")
         self.step_count += 1
 
+        self.updateFullCleaningTime()
+        self.updateRunningState()
+
+        self.datacollector.collect(self)
+
+    # Purpose: record the step at which the room became completely clean (only the first time).
+    # Parameters: none.
+    # Returns: nothing.
+    def updateFullCleaningTime(self):
         if self.full_cleaning_time is None and self.n_dirty() == 0:
             self.full_cleaning_time = self.step_count
 
+    # Purpose: stop the simulation once everything is clean or max_steps is reached.
+    # Parameters: none.
+    # Returns: nothing.
+    def updateRunningState(self):
         if self.full_cleaning_time is not None or self.step_count >= self.max_steps:
             self.running = False
-
-        self.datacollector.collect(self)
 
     # Purpose: summarize the result of the run.
     # Parameters: none.

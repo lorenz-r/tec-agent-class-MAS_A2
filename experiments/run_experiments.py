@@ -45,10 +45,10 @@ def _ci95(values):
     return stats.sem(values) * stats.t.ppf(0.975, len(values) - 1)
 
 
-# Purpose: run the sweep (30 seeds per configuration), save the CSV files and compute statistics, speedup and efficiency per number of agents.
+# Purpose: run the sweep (30 seeds per configuration) with mesa.batch_run.
 # Parameters: AGENT_CONFIGURATIONS, list with the agent counts to test, MAX_STEPS, maximum time of each run.
-# Returns: tuple (summary table per agent count, AGENT_CONFIGURATIONS, results folder).
-def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
+# Returns: DataFrame with one row per run (batch_run returns one row per agent, so the extras are dropped).
+def runSweep(AGENT_CONFIGURATIONS, MAX_STEPS):
     results = mesa.batch_run(
         CleaningModel,
         parameters={
@@ -65,11 +65,13 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
     )
 
     df = pd.DataFrame(results)
-    df = df.drop_duplicates(subset="RunId").drop(columns=["AgentID", "Moves"])
+    return df.drop_duplicates(subset="RunId").drop(columns=["AgentID", "Moves"])
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    df.to_csv(RESULTS_DIR / "sweep.csv", index=False)
 
+# Purpose: compute the statistics of the sweep for each agent count.
+# Parameters: df, DataFrame with one row per run, as returned by runSweep.
+# Returns: DataFrame with one row per agent count.
+def buildSummary(df):
     # One row per agent count. Everything the plots need is computed here,
     # so the plot functions only use summary_df.
     summary_df = (
@@ -95,6 +97,14 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
         .reset_index()
     )
     summary_df["MovesPerAgent"] = summary_df["AverageMoves"] / summary_df["n_agents"]
+    return summary_df
+
+
+# Purpose: add the speedup T(1)/T(k) and the efficiency (speedup / k) with their confidence intervals.
+# Parameters: summary_df, summary table from buildSummary (not modified), df, DataFrame with one row per run.
+# Returns: a copy of summary_df with the Speedup, CI95Speedup, Efficiency and CI95Efficiency columns.
+def addSpeedup(summary_df, df):
+    summary_df = summary_df.copy()
 
     # Speedup T(1)/T(k) per seed: each seed is the same room for every agent count.
     times = df.pivot_table(index="seed", columns="n_agents", values="Step")
@@ -103,9 +113,26 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
     summary_df["CI95Speedup"] = per_seed_speedup.apply(_ci95).to_numpy()
     summary_df["Efficiency"] = summary_df["Speedup"] / summary_df["n_agents"]
     summary_df["CI95Efficiency"] = summary_df["CI95Speedup"] / summary_df["n_agents"]
-    summary_df["MaxStepsLimit"] = MAX_STEPS
+    return summary_df
 
+
+# Purpose: save the raw runs and the summary table as CSV files in RESULTS_DIR.
+# Parameters: df, DataFrame with one row per run, summary_df, summary table per agent count.
+# Returns: nothing.
+def saveResults(df, summary_df):
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_csv(RESULTS_DIR / "sweep.csv", index=False)
     summary_df.to_csv(RESULTS_DIR / "experiment_summary.csv", index=False)
+
+
+# Purpose: run the whole experiment: sweep, statistics, speedup and CSV files.
+# Parameters: AGENT_CONFIGURATIONS, list with the agent counts to test, MAX_STEPS, maximum time of each run.
+# Returns: tuple (summary table per agent count, AGENT_CONFIGURATIONS, results folder).
+def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
+    df = runSweep(AGENT_CONFIGURATIONS, MAX_STEPS)
+    summary_df = addSpeedup(buildSummary(df), df)
+    summary_df["MaxStepsLimit"] = MAX_STEPS
+    saveResults(df, summary_df)
 
     return summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR
 
@@ -210,16 +237,14 @@ def plot_time_distribution(
     finish_figure(fig, RESULTS_DIR, "time_distribution.png", show_plot)
 
 
-# Purpose: plot the speedup T(1)/T(k) and the efficiency (speedup / k) versus the number of robots.
-# Parameters: summary_df, summary table, AGENT_CONFIGURATIONS, axis values,
-#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Purpose: draw the measured speedup T(1)/T(k) against the ideal speedup on one axes.
+# Parameters: ax, matplotlib axes to draw on, summary_df, summary table, AGENT_CONFIGURATIONS, axis values.
 # Returns: nothing.
-def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False):
+def drawSpeedup(ax, summary_df, AGENT_CONFIGURATIONS):
     k = summary_df["n_agents"].to_numpy(dtype=float)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
 
-    ax1.plot(k, k, "--", color="#8a8a85", linewidth=1.5, label="Ideal speedup")
-    ax1.errorbar(
+    ax.plot(k, k, "--", color="#8a8a85", linewidth=1.5, label="Ideal speedup")
+    ax.errorbar(
         k,
         summary_df["Speedup"],
         yerr=summary_df["CI95Speedup"],
@@ -228,21 +253,28 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
         capsize=3,
         label="Measured (mean, 95% CI)",
     )
-    ax1.set_yscale("log", base=2)
+    ax.set_yscale("log", base=2)
 
-    ax1.set_xscale("log", base=2)
-    ax1.set_xticks(AGENT_CONFIGURATIONS)
-    ax1.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax1.minorticks_off()
-    ax1.set_yticks(AGENT_CONFIGURATIONS)
-    ax1.set_yticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax1.set_xlabel("Number of Robots")
-    ax1.set_ylabel("Speedup  T(1) / T(k)")
-    ax1.set_title("Speedup")
-    ax1.legend()
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(AGENT_CONFIGURATIONS)
+    ax.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
+    ax.minorticks_off()
+    ax.set_yticks(AGENT_CONFIGURATIONS)
+    ax.set_yticklabels([str(t) for t in AGENT_CONFIGURATIONS])
+    ax.set_xlabel("Number of Robots")
+    ax.set_ylabel("Speedup  T(1) / T(k)")
+    ax.set_title("Speedup")
+    ax.legend()
 
-    ax2.axhline(1, linestyle="--", color="#8a8a85", linewidth=1.5)
-    ax2.errorbar(
+
+# Purpose: draw the efficiency (speedup / k) on one axes, with 1 as the ideal reference line.
+# Parameters: ax, matplotlib axes to draw on, summary_df, summary table, AGENT_CONFIGURATIONS, axis values.
+# Returns: nothing.
+def drawEfficiency(ax, summary_df, AGENT_CONFIGURATIONS):
+    k = summary_df["n_agents"].to_numpy(dtype=float)
+
+    ax.axhline(1, linestyle="--", color="#8a8a85", linewidth=1.5)
+    ax.errorbar(
         k,
         summary_df["Efficiency"],
         yerr=summary_df["CI95Efficiency"],
@@ -251,16 +283,28 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
         capsize=3,
     )
 
-    ax2.set_xscale("log", base=2)
-    ax2.set_xticks(AGENT_CONFIGURATIONS)
-    ax2.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax2.minorticks_off()
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(AGENT_CONFIGURATIONS)
+    ax.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
+    ax.minorticks_off()
 
     upper = (summary_df["Efficiency"] + summary_df["CI95Efficiency"].fillna(0)).max()
-    ax2.set_ylim(0, max(1.2, upper * 1.05))
-    ax2.set_xlabel("Number of Robots")
-    ax2.set_ylabel("Efficiency  speedup / k")
-    ax2.set_title("Efficiency (1 = every robot fully useful)")
+    ax.set_ylim(0, max(1.2, upper * 1.05))
+    ax.set_xlabel("Number of Robots")
+    ax.set_ylabel("Efficiency  speedup / k")
+    ax.set_title("Efficiency (1 = every robot fully useful)")
+
+
+# Purpose: plot the speedup T(1)/T(k) and the efficiency (speedup / k) versus the number of robots.
+# Parameters: summary_df, summary table, AGENT_CONFIGURATIONS, axis values,
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
+def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
+
+    drawSpeedup(ax1, summary_df, AGENT_CONFIGURATIONS)
+    drawEfficiency(ax2, summary_df, AGENT_CONFIGURATIONS)
+
     finish_figure(fig, RESULTS_DIR, "speedup_efficiency.png", show_plot)
 
 
@@ -338,31 +382,21 @@ def plot_cleaning_percentage_comparison(
     finish_figure(fig, RESULTS_DIR, "cleaning_percentage_comparison.png", show_plot)
 
 
-# Purpose: draw a heatmap of the final % of clean cells per step limit (rows) and robot count (columns).
-# Parameters: summaries, list of summary tables (one per step limit), AGENT_CONFIGURATIONS,
-#             unused here (kept so the call matches the other plot functions),
-#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
-# Returns: nothing.
-def plot_cleaning_percentage_heatmap(
-    summaries, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
-):
+# Purpose: build the table behind the heatmap: average final % of clean cells per step limit and robot count.
+# Parameters: summaries, list of summary tables (one per step limit).
+# Returns: DataFrame with one row per step limit (sorted) and one column per robot count.
+def buildHeatmapTable(summaries):
     combined = pd.concat(summaries, ignore_index=True)
-    table = combined.pivot_table(
+    return combined.pivot_table(
         index="MaxStepsLimit", columns="n_agents", values="AverageCleaningPercentage"
     ).sort_index()
 
-    # Single-hue sequential scale: light = less clean, dark = fully clean
-    cmap = LinearSegmentedColormap.from_list(
-        "clean",
-        ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
-    )
-    vmin, vmax = np.floor(table.values.min()), 100
 
-    fig, ax = plt.subplots(
-        figsize=(1.1 * len(table.columns) + 2.5, 0.6 * len(table.index) + 1.8)
-    )
-    image = ax.imshow(table.values, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
-
+# Purpose: write the value of every cell of the table on top of the heatmap.
+# Parameters: ax, matplotlib axes holding the heatmap, table, DataFrame from buildHeatmapTable,
+#             vmin, vmax, lower and upper limits of the color scale (used to pick a readable text color).
+# Returns: nothing.
+def annotateHeatmap(ax, table, vmin, vmax):
     for i in range(table.shape[0]):
         for j in range(table.shape[1]):
             value = table.values[i, j]
@@ -378,6 +412,31 @@ def plot_cleaning_percentage_heatmap(
                 fontsize=9,
                 color="white" if is_dark else "#1f1f1e",
             )
+
+
+# Purpose: draw a heatmap of the final % of clean cells per step limit (rows) and robot count (columns).
+# Parameters: summaries, list of summary tables (one per step limit), AGENT_CONFIGURATIONS,
+#             unused here (kept so the call matches the other plot functions),
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
+def plot_cleaning_percentage_heatmap(
+    summaries, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
+):
+    table = buildHeatmapTable(summaries)
+
+    # Single-hue sequential scale: light = less clean, dark = fully clean
+    cmap = LinearSegmentedColormap.from_list(
+        "clean",
+        ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+    )
+    vmin, vmax = np.floor(table.values.min()), 100
+
+    fig, ax = plt.subplots(
+        figsize=(1.1 * len(table.columns) + 2.5, 0.6 * len(table.index) + 1.8)
+    )
+    image = ax.imshow(table.values, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
+
+    annotateHeatmap(ax, table, vmin, vmax)
 
     ax.set_xticks(range(len(table.columns)))
     ax.set_xticklabels([str(k) for k in table.columns])
