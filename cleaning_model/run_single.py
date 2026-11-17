@@ -21,14 +21,14 @@ MAX_STEPS = 500
 DIRTY_PCT = 0.3
 
 if __name__ == "__main__":
-    model = CleaningModel(
-        width=WIDTH,
-        height=HEIGHT,
-        numAgents=N_AGENTS,
-        maxSteps=MAX_STEPS,
-        dirtyPct=DIRTY_PCT,
-    )
-    results = model.run()
-    print(results)
-    model.datacollector.get_agent_vars_dataframe().to_csv(RESULTS_DIR / "agent_test_results.csv")
-    model.datacollector.get_model_vars_dataframe().to_csv(RESULTS_DIR / "model_test_results.csv", index_label="Step")
+	model = CleaningModel(
+		width=WIDTH,
+		height=HEIGHT,
+		numAgents=N_AGENTS,
+		maxSteps=MAX_STEPS,
+		dirtyPct=DIRTY_PCT,
+	)
+	results = model.run()
+	print(results)
+	model.datacollector.get_agent_vars_dataframe().to_csv(RESULTS_DIR / "agent_test_results.csv")
+	model.datacollector.get_model_vars_dataframe().to_csv(RESULTS_DIR / "model_test_results.csv", index_label="Step")
