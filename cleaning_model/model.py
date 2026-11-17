@@ -1,3 +1,12 @@
+# Description: MESA model of a room with dirty cells and reactive cleaning robots. Collects metrics with DataCollector.
+# Authors: 
+#   Alan Oropeza Saucedo - A01661614
+#   Armando Vásquez Ambrocio - A01669283
+#   David Alejandro Goncalves Pestana - A01669122
+#   Hugo Fernando Rodríguez Montiel - A01782589
+#   Lorenz Rasbach - A01832437
+# Date: 2026-11-17
+
 import mesa
 import numpy as np
 from agents import CleaningAgent
@@ -8,6 +17,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 class CleaningModel(mesa.Model):
+    # Purpose: build the room, dirty random cells, place the agents and set up the DataCollector.
+    # Parameters: width, room width, height, room height, n_agents, number of robots,
+    #             max_steps, maximum run time, dirty_pct, fraction of initially dirty cells (0 to 1),
+    #             seed, random generator seed (None = random).
+    # Returns: nothing.
     def __init__(self, width, height, n_agents, max_steps, dirty_pct, seed=None):
         super().__init__(rng=np.random.default_rng(seed=seed))
 
@@ -33,7 +47,6 @@ class CleaningModel(mesa.Model):
         if self.full_cleaning_time is not None:
             self.running = False
 
-        # Data collection
         self.datacollector = mesa.DataCollector(
             model_reporters={
                 "CleaningPercentage": lambda m: 100 * (1 - m.n_dirty() / m.n_cells),
@@ -47,12 +60,18 @@ class CleaningModel(mesa.Model):
                 "Moves": "moves",
             },
         )
-        # Initial state
+        # Records step 0 (initial state).
         self.datacollector.collect(self)
 
+    # Purpose: count the cells that are still dirty.
+    # Parameters: none.
+    # Returns: integer with the number of dirty cells.
     def n_dirty(self):
         return int(self.grid.dirty.data.sum())
 
+    # Purpose: advance one step, record when everything became clean, decide whether to stop and collect data.
+    # Parameters: none.
+    # Returns: nothing.
     def step(self):
         self.agents.shuffle_do("step")
         self.step_count += 1
@@ -65,6 +84,9 @@ class CleaningModel(mesa.Model):
 
         self.datacollector.collect(self)
 
+    # Purpose: summarize the result of the run.
+    # Parameters: none.
+    # Returns: dictionary with CleaningPercentage (% of clean cells), TotalMoves (moves of all agents) and FullCleaningTime (step at which everything was clean, None if never).
     def summary(self):
         summary_content = {
             "CleaningPercentage": 100 * (1 - self.n_dirty() / self.n_cells),
@@ -74,6 +96,9 @@ class CleaningModel(mesa.Model):
 
         return summary_content
 
+    # Purpose: run steps until everything is clean or max_steps is reached.
+    # Parameters: none.
+    # Returns: the dictionary from summary().
     def run(self):
 
         while self.running:

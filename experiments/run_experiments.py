@@ -1,3 +1,12 @@
+# Description: experiment sweep with mesa.batch_run (varying the number of agents), statistics per configuration and plots.
+# Authors: 
+#   Alan Oropeza Saucedo - A01661614
+#   Armando Vásquez Ambrocio - A01669283
+#   David Alejandro Goncalves Pestana - A01669122
+#   Hugo Fernando Rodríguez Montiel - A01782589
+#   Lorenz Rasbach - A01832437
+# Date: 2026-11-17
+
 import sys
 from pathlib import Path
 import mesa
@@ -26,14 +35,19 @@ COLORS = {
 }
 
 
+# Purpose: compute the half-width of the 95% confidence interval of the mean.
+# Parameters: values, sequence of numeric values of a sample.
+# Returns: half-width of the interval (float), or NaN if there are fewer than 2 values.
 def _ci95(values):
-    """Half-width of the 95% confidence interval of the mean."""
     values = np.asarray(values, dtype=float)
     if len(values) < 2:
         return np.nan
     return stats.sem(values) * stats.t.ppf(0.975, len(values) - 1)
 
 
+# Purpose: run the sweep (30 seeds per configuration), save the CSV files and compute statistics, speedup and efficiency per number of agents.
+# Parameters: AGENT_CONFIGURATIONS, list with the agent counts to test, MAX_STEPS, maximum time of each run.
+# Returns: tuple (summary table per agent count, AGENT_CONFIGURATIONS, results folder).
 def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
     results = mesa.batch_run(
         CleaningModel,
@@ -98,6 +112,10 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
     return summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR
 
 
+# Purpose: bar chart of the average steps until clean versus the number of robots.
+# Parameters: summary_df, summary table; AGENT_CONFIGURATIONS, X axis values,
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
 def plot_average_steps(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
@@ -121,6 +139,10 @@ def plot_average_steps(
         plt.close()
 
 
+# Purpose: bar chart of the average total moves versus the number of robots.
+# Parameters: summary_df, summary table; AGENT_CONFIGURATIONS, X axis values,
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
 def plot_average_movements(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
@@ -143,10 +165,13 @@ def plot_average_movements(
         plt.close()
 
 
+# Purpose: draw boxplots of the cleaning time from the quartiles stored in summary_df.
+# Parameters: summary_df, summary table; AGENT_CONFIGURATIONS, X axis values,
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
 def plot_time_distribution(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
-    """Boxplots drawn from the quartiles stored in summary_df."""
     box_stats = [
         {
             "label": str(row.n_agents),
@@ -185,6 +210,10 @@ def plot_time_distribution(
     plt.show()
 
 
+# Purpose: plot the speedup T(1)/T(k) and the efficiency (speedup / k) versus the number of robots.
+# Parameters: summary_df, summary table, AGENT_CONFIGURATIONS, axis values,
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
 def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False):
     k = summary_df["n_agents"].to_numpy(dtype=float)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
@@ -236,6 +265,10 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
     plt.show()
 
 
+# Purpose: plot the failed move attempts (wall bumps and moves blocked by another robot).
+# Parameters: summary_df, summary table, AGENT_CONFIGURATIONS, X axis values,
+#             RESULTS_DIR, folder where the PNG is saved (None = do not save), show_plot, show the figure.
+# Returns: nothing.
 def plot_failed_moves(
     summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
@@ -266,10 +299,14 @@ def plot_failed_moves(
     plt.show()
 
 
+# Purpose: plot the final % of clean cells per robot count, one line per step limit.
+# Parameters: summaries, list of summary tables (one per step limit), AGENT_CONFIGURATIONS,
+#             X axis values, RESULTS_DIR, folder where the PNG is saved (None = do not save),
+#             show_plot, show the figure.
+# Returns: nothing.
 def plot_cleaning_percentage_comparison(
     summaries, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
-    """Final clean percentage per robot count, one line per step limit."""
     colors = [
         COLORS["BLUE"],
         COLORS["ORANGE"],
@@ -304,10 +341,13 @@ def plot_cleaning_percentage_comparison(
     plt.show()
 
 
+# Purpose: draw a heatmap of the final % of clean cells per step limit (rows) and robot count (columns).
+# Parameters: summaries, list of summary tables (one per step limit), AGENT_CONFIGURATIONS,
+#             RESULTS_DIR and show_plot, unused for now (kept for compatibility).
+# Returns: nothing.
 def plot_cleaning_percentage_heatmap(
     summaries, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
 ):
-    """Final clean percentage for every step limit (rows) and robot count (columns)."""
     combined = pd.concat(summaries, ignore_index=True)
     table = combined.pivot_table(
         index="MaxStepsLimit", columns="n_agents", values="AverageCleaningPercentage"
