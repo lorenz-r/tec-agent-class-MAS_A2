@@ -40,6 +40,8 @@ class CleaningModel(mesa.Model):
                 "DirtyCells": self.n_dirty,
                 "TotalMoves": lambda m: m.agents.agg("moves", sum),
                 "FullCleaningTime": "full_cleaning_time",
+                "WallBumps": lambda m: m.agents.agg("wall_bumps", sum),
+                "BlockedMoves": lambda m: m.agents.agg("blocked_moves", sum),
             },
             agent_reporters={
                 "Moves": "moves",
