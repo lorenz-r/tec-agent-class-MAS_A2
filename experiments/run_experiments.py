@@ -65,8 +65,6 @@ def run_experiments(
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     df.to_csv(RESULTS_DIR / "sweep.csv", index=False)
 
-    # One row per agent count. Everything the plots need is computed here,
-    # so the plot functions only use summary_df.
     summary_df = (
         df.groupby("n_agents")
         .agg(
@@ -103,8 +101,6 @@ def run_experiments(
 
     summary_df.to_csv(RESULTS_DIR / "experiment_summary.csv", index=False)
 
-    # print_statistics(df, summary_df)
-
     return summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR
 
 
@@ -129,6 +125,7 @@ def plot_average_steps(
         plt.show()
     else:
         plt.close()
+        plt.savefig(RESULTS_DIR / "average_steps.png")
 
 
 def plot_average_movements(
@@ -151,11 +148,10 @@ def plot_average_movements(
         plt.show()
     else:
         plt.close()
+        plt.savefig(RESULTS_DIR / "average_movements.png")
 
 
-def plot_time_distribution(
-    summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
-):
+def plot_time_distribution(summary_df, RESULTS_DIR=None, show_plot=False):
     """Boxplots drawn from the quartiles stored in summary_df."""
     box_stats = [
         {
@@ -191,8 +187,12 @@ def plot_time_distribution(
     ax.set_title(
         "Distribution of Cleaning Time (box = quartiles, whiskers = min/max, diamond = mean)"
     )
-    # finish(fig, RESULTS_DIR, "time_distribution.png", show_plot)
-    plt.show()
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+        fig.savefig(RESULTS_DIR / "time_distribution.png")
 
 
 def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False):
@@ -236,8 +236,11 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
     ax2.set_xlabel("Number of Robots")
     ax2.set_ylabel("Efficiency  speedup / k")
     ax2.set_title("Efficiency (1 = every robot fully useful)")
-    # _finish(fig, RESULTS_DIR, "speedup_efficiency.png", show_plot)
-    plt.show()
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+        fig.savefig(RESULTS_DIR / "speedup_efficiency.png")
 
 
 def plot_failed_moves(
@@ -263,8 +266,11 @@ def plot_failed_moves(
     ax.set_ylabel("Failed moves per run (mean)")
     ax.set_title("Failed Move Attempts: Walls vs Congestion")
     ax.legend()
-    # _finish(fig, RESULTS_DIR, "failed_moves.png", show_plot)
-    plt.show()
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+        fig.savefig(RESULTS_DIR / "failed_moves.png")
 
 
 def plot_cleaning_percentage_comparison(
@@ -298,8 +304,12 @@ def plot_cleaning_percentage_comparison(
     ax.set_ylabel("Clean cells at the end (%)")
     ax.set_title("Final Cleaning Percentage vs Number of Robots (mean, 95% CI)")
     ax.legend(loc="lower right")
-    # _finish(fig, RESULTS_DIR, "cleaning_percentage_comparison.png", show_plot)
-    plt.show()
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+        fig.savefig(RESULTS_DIR / "cleaning_percentage_comparison.png")
 
 
 def plot_cleaning_percentage_heatmap(
@@ -357,7 +367,12 @@ def plot_cleaning_percentage_heatmap(
     colorbar = fig.colorbar(image, ax=ax, fraction=0.04, pad=0.02)
     colorbar.set_label("Clean cells (%)")
     colorbar.outline.set_visible(False)
-    plt.show()
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+        fig.savefig(RESULTS_DIR / "cleaning_percentage_heatmap.png")
 
 
 def cleaning_percentage_table(summaries):
@@ -425,7 +440,11 @@ def plot_dirt_comparison(
     ax2.set_title("Total Movements (mean, 95% CI)")
     ax2.legend(title="Initial dirt", loc="upper left", bbox_to_anchor=(1.02, 1))
 
-    # _finish(fig, RESULTS_DIR, "dirt_comparison.png", show_plot)
+    if show_plot:
+        plt.show()
+    else:
+        plt.close()
+        fig.savefig(RESULTS_DIR / "dirt_comparison.png")
 
 
 if __name__ == "__main__":
