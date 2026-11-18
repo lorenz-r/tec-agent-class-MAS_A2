@@ -26,6 +26,13 @@ COLORS = {
 }
 
 
+def _log2_axis_scale(ax, ticks):
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(t) for t in ticks])
+    ax.minorticks_off()
+
+
 def _ci95(values):
     """Half-width of the 95% confidence interval of the mean."""
     values = np.asarray(values, dtype=float)
@@ -34,17 +41,19 @@ def _ci95(values):
     return stats.sem(values) * stats.t.ppf(0.975, len(values) - 1)
 
 
-def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
+def run_experiments(
+    AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000, DIRTY_PCT=0.5, N_SEEDS=30
+):
     results = mesa.batch_run(
         CleaningModel,
         parameters={
             "width": 20,
             "height": 20,
-            "dirty_pct": 0.5,
+            "dirty_pct": DIRTY_PCT,
             "max_steps": MAX_STEPS,
             "n_agents": AGENT_CONFIGURATIONS,
         },
-        rng=range(30),
+        rng=range(N_SEEDS),
         data_collection_period=-1,
         max_steps=MAX_STEPS,
         number_processes=None,
@@ -90,6 +99,7 @@ def run_experiments(AGENT_CONFIGURATIONS=None, MAX_STEPS=50_000):
     summary_df["Efficiency"] = summary_df["Speedup"] / summary_df["n_agents"]
     summary_df["CI95Efficiency"] = summary_df["CI95Speedup"] / summary_df["n_agents"]
     summary_df["MaxStepsLimit"] = MAX_STEPS
+    summary_df["DirtyPct"] = DIRTY_PCT
 
     summary_df.to_csv(RESULTS_DIR / "experiment_summary.csv", index=False)
 
@@ -201,10 +211,7 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
     )
     ax1.set_yscale("log", base=2)
 
-    ax1.set_xscale("log", base=2)
-    ax1.set_xticks(AGENT_CONFIGURATIONS)
-    ax1.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax1.minorticks_off()
+    _log2_axis_scale(ax1, AGENT_CONFIGURATIONS)
     ax1.set_yticks(AGENT_CONFIGURATIONS)
     ax1.set_yticklabels([str(t) for t in AGENT_CONFIGURATIONS])
     ax1.set_xlabel("Number of Robots")
@@ -222,10 +229,7 @@ def plot_speedup(summary_df, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=F
         capsize=3,
     )
 
-    ax2.set_xscale("log", base=2)
-    ax2.set_xticks(AGENT_CONFIGURATIONS)
-    ax2.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax2.minorticks_off()
+    _log2_axis_scale(ax2, AGENT_CONFIGURATIONS)
 
     upper = (summary_df["Efficiency"] + summary_df["CI95Efficiency"].fillna(0)).max()
     ax2.set_ylim(0, max(1.2, upper * 1.05))
@@ -254,10 +258,7 @@ def plot_failed_moves(
         color=COLORS["ORANGE"],
         label="Blocked by another robot",
     )
-    ax.set_xscale("log", base=2)
-    ax.set_xticks(AGENT_CONFIGURATIONS)
-    ax.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax.minorticks_off()
+    _log2_axis_scale(ax, AGENT_CONFIGURATIONS)
     ax.set_xlabel("Number of Robots")
     ax.set_ylabel("Failed moves per run (mean)")
     ax.set_title("Failed Move Attempts: Walls vs Congestion")
@@ -290,10 +291,7 @@ def plot_cleaning_percentage_comparison(
             capsize=3,
             label=f"Limit of {limit:,} steps",
         )
-    ax.set_xscale("log", base=2)
-    ax.set_xticks(AGENT_CONFIGURATIONS)
-    ax.set_xticklabels([str(t) for t in AGENT_CONFIGURATIONS])
-    ax.minorticks_off()
+    _log2_axis_scale(ax, AGENT_CONFIGURATIONS)
 
     ax.set_ylim(top=101)
     ax.set_xlabel("Number of Robots")
@@ -360,6 +358,74 @@ def plot_cleaning_percentage_heatmap(
     colorbar.set_label("Clean cells (%)")
     colorbar.outline.set_visible(False)
     plt.show()
+
+
+def cleaning_percentage_table(summaries):
+    combined = pd.concat(summaries, ignore_index=True)
+    return combined.pivot_table(
+        index="n_agents", columns="MaxStepsLimit", values="AverageCleaningPercentage"
+    ).round(2)
+
+
+def dirt_table(summaries, value="AverageSteps"):
+    combined = pd.concat(summaries, ignore_index=True)
+    table = combined.pivot_table(index="n_agents", columns="DirtyPct", values=value)
+    table.columns = [f"{pct:.0%} dirty" for pct in table.columns]
+    return table.round(1)
+
+
+def plot_dirt_comparison(
+    summaries, AGENT_CONFIGURATIONS, RESULTS_DIR=None, show_plot=False
+):
+    """Cleaning time and total movements per robot count, one line per dirt percentage."""
+    summaries = sorted(summaries, key=lambda s: s["DirtyPct"].iloc[0])
+    # Dirt percentage is ordered, so use one hue from light (little dirt) to dark (much dirt)
+    ramp = ["#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+    colors = (
+        ramp[-len(summaries) :]
+        if len(summaries) <= len(ramp)
+        else plt.cm.Blues(np.linspace(0.35, 1, len(summaries)))
+    )
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.8))
+    for color, summary_df in zip(colors, summaries):
+        label = f"{summary_df['DirtyPct'].iloc[0]:.0%} dirty"
+        ax1.errorbar(
+            summary_df["n_agents"],
+            summary_df["AverageSteps"],
+            yerr=summary_df["CI95Steps"],
+            fmt="o-",
+            color=color,
+            capsize=3,
+            label=label,
+        )
+        ax2.errorbar(
+            summary_df["n_agents"],
+            summary_df["AverageMoves"],
+            yerr=summary_df["CI95Moves"],
+            fmt="o-",
+            color=color,
+            capsize=3,
+            label=label,
+        )
+
+    ax1.set_yscale("log")
+    _log2_axis_scale(ax1, AGENT_CONFIGURATIONS)
+    ax1.set_yticks([250, 500, 1_000, 2_500, 5_000])
+    ax1.set_yticklabels(["250", "500", "1,000", "2,500", "5,000"])
+    ax1.yaxis.set_minor_formatter(plt.NullFormatter())
+    ax1.set_xlabel("Number of Robots")
+    ax1.set_ylabel("Steps until clean (log scale)")
+    ax1.set_title("Cleaning Time (mean, 95% CI)")
+
+    _log2_axis_scale(ax2, AGENT_CONFIGURATIONS)
+    ax2.set_ylim(bottom=0)
+    ax2.set_xlabel("Number of Robots")
+    ax2.set_ylabel("Total Movements (all robots)")
+    ax2.set_title("Total Movements (mean, 95% CI)")
+    ax2.legend(title="Initial dirt", loc="upper left", bbox_to_anchor=(1.02, 1))
+
+    # _finish(fig, RESULTS_DIR, "dirt_comparison.png", show_plot)
 
 
 if __name__ == "__main__":
