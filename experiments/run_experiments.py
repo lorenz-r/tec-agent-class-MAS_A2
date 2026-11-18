@@ -1,5 +1,5 @@
 # Description: experiment sweep with mesa.batch_run (varying the number of agents), statistics per configuration and plots.
-# Authors: 
+# Authors:
 #   Alan Oropeza Saucedo - A01661614
 #   Armando Vásquez Ambrocio - A01669283
 #   David Alejandro Goncalves Pestana - A01669122
@@ -21,9 +21,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cleaning_model"
 
 from model import CleaningModel
 
-SCRIPT_LOCATION = Path(__file__).resolve().parent
-ROOT = SCRIPT_LOCATION.parent
-RESULTS_DIR = ROOT / "results"
+ScriptLocation = Path(__file__).resolve().parent
+root = ScriptLocation.parent
+resultsDir = root / "results"
 
 
 COLORS = {
@@ -33,6 +33,16 @@ COLORS = {
 	"PURPLE": "#b24e97",
 	"RED": "#e70e0e",
 }
+
+
+# Purpose: set the X axis to log base 2, with ticks at the given values and labels as strings.
+# Parameters: ax, matplotlib axes to modify, ticks, list of values for the ticks.
+# Returns: nothing.
+def log2AxisScale(ax, ticks):
+	ax.set_xscale("log", base=2)
+	ax.set_xticks(ticks)
+	ax.set_xticklabels([str(t) for t in ticks])
+	ax.minorticks_off()
 
 
 # Purpose: compute the half-width of the 95% confidence interval of the mean.
@@ -48,17 +58,17 @@ def ci95(values):
 # Purpose: run the sweep (30 seeds per configuration) with mesa.batch_run.
 # Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run.
 # Returns: DataFrame with one row per run (batch_run returns one row per agent, so the extras are dropped).
-def runSweep(agentConfigurations, maxSteps):
+def runSweep(agentConfigurations, maxSteps, dirtyPct=0.5, nSeeds=30):
 	results = mesa.batch_run(
 		CleaningModel,
 		parameters={
 			"width": 20,
 			"height": 20,
-			"dirtyPct": 0.5,
+			"dirtyPct": dirtyPct,
 			"maxSteps": maxSteps,
 			"numAgents": agentConfigurations,
 		},
-		rng=range(30),
+		rng=range(nSeeds),
 		data_collection_period=-1,
 		max_steps=maxSteps,
 		number_processes=None,
@@ -116,25 +126,26 @@ def addSpeedup(summaryDf, df):
 	return summaryDf
 
 
-# Purpose: save the raw runs and the summary table as CSV files in RESULTS_DIR.
+# Purpose: save the raw runs and the summary table as CSV files in resultsDir.
 # Parameters: df, DataFrame with one row per run, summaryDf, summary table per agent count.
 # Returns: nothing.
 def saveResults(df, summaryDf):
-	RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-	df.to_csv(RESULTS_DIR / "sweep.csv", index=False)
-	summaryDf.to_csv(RESULTS_DIR / "experiment_summary.csv", index=False)
+	resultsDir.mkdir(parents=True, exist_ok=True)
+	df.to_csv(resultsDir / "sweep.csv", index=False)
+	summaryDf.to_csv(resultsDir / "experiment_summary.csv", index=False)
 
 
 # Purpose: run the whole experiment: sweep, statistics, speedup and CSV files.
 # Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run.
 # Returns: tuple (summary table per agent count, agentConfigurations, results folder).
-def runExperiments(agentConfigurations=None, maxSteps=50_000):
-	df = runSweep(agentConfigurations, maxSteps)
+def runExperiments(agentConfigurations=None, maxSteps=50_000, dirtyPct=0.5, nSeeds=30):
+	df = runSweep(agentConfigurations, maxSteps, dirtyPct, nSeeds)
 	summaryDf = addSpeedup(buildSummary(df), df)
 	summaryDf["MaxStepsLimit"] = maxSteps
+	summaryDf["DirtyPct"] = dirtyPct
 	saveResults(df, summaryDf)
 
-	return summaryDf, agentConfigurations, RESULTS_DIR
+	return summaryDf, agentConfigurations, resultsDir
 
 
 # Purpose: save a figure as PNG (if a folder is given), then show it or close it.
@@ -155,9 +166,7 @@ def finishFigure(fig, resultsDir, fileName, showPlot):
 # Parameters: summaryDf, summary table; agentConfigurations, X axis values,
 #             resultsDir, folder where the PNG is saved (None = do not save), showPlot, show the figure.
 # Returns: nothing.
-def plotAverageSteps(
-	summaryDf, agentConfigurations, resultsDir=None, showPlot=False
-):
+def plotAverageSteps(summaryDf, agentConfigurations, resultsDir=None, showPlot=False):
 	fig = plt.figure(figsize=(8, 5))
 
 	plt.bar(summaryDf["numAgents"], summaryDf["AverageSteps"])
@@ -197,9 +206,7 @@ def plotAverageMovements(
 # Parameters: summaryDf, summary table; agentConfigurations, unused here (kept so the call
 #             matches the other plot functions), resultsDir, folder where the PNG is saved (None = do not save), showPlot, show the figure.
 # Returns: nothing.
-def plotTimeDistribution(
-	summaryDf, agentConfigurations, resultsDir=None, showPlot=False
-):
+def plotTimeDistribution(summaryDf, resultsDir=None, showPlot=False):
 	boxStats = [
 		{
 			"label": str(row.numAgents),
@@ -255,10 +262,7 @@ def drawSpeedup(ax, summaryDf, agentConfigurations):
 	)
 	ax.set_yscale("log", base=2)
 
-	ax.set_xscale("log", base=2)
-	ax.set_xticks(agentConfigurations)
-	ax.set_xticklabels([str(t) for t in agentConfigurations])
-	ax.minorticks_off()
+	log2AxisScale(ax, agentConfigurations)
 	ax.set_yticks(agentConfigurations)
 	ax.set_yticklabels([str(t) for t in agentConfigurations])
 	ax.set_xlabel("Number of Robots")
@@ -283,11 +287,7 @@ def drawEfficiency(ax, summaryDf, agentConfigurations):
 		capsize=3,
 	)
 
-	ax.set_xscale("log", base=2)
-	ax.set_xticks(agentConfigurations)
-	ax.set_xticklabels([str(t) for t in agentConfigurations])
-	ax.minorticks_off()
-
+	log2AxisScale(ax, agentConfigurations)
 	upper = (summaryDf["Efficiency"] + summaryDf["CI95Efficiency"].fillna(0)).max()
 	ax.set_ylim(0, max(1.2, upper * 1.05))
 	ax.set_xlabel("Number of Robots")
@@ -312,9 +312,7 @@ def plotSpeedup(summaryDf, agentConfigurations, resultsDir=None, showPlot=False)
 # Parameters: summaryDf, summary table, agentConfigurations, X axis values,
 #             resultsDir, folder where the PNG is saved (None = do not save), showPlot, show the figure.
 # Returns: nothing.
-def plotFailedMoves(
-	summaryDf, agentConfigurations, resultsDir=None, showPlot=False
-):
+def plotFailedMoves(summaryDf, agentConfigurations, resultsDir=None, showPlot=False):
 	fig, ax = plt.subplots(figsize=(8, 5))
 	ax.plot(
 		summaryDf["numAgents"],
@@ -330,10 +328,7 @@ def plotFailedMoves(
 		color=COLORS["ORANGE"],
 		label="Blocked by another robot",
 	)
-	ax.set_xscale("log", base=2)
-	ax.set_xticks(agentConfigurations)
-	ax.set_xticklabels([str(t) for t in agentConfigurations])
-	ax.minorticks_off()
+	log2AxisScale(ax, agentConfigurations)
 	ax.set_xlabel("Number of Robots")
 	ax.set_ylabel("Failed moves per run (mean)")
 	ax.set_title("Failed Move Attempts: Walls vs Congestion")
@@ -369,10 +364,7 @@ def plotCleaningPercentageComparison(
 			capsize=3,
 			label=f"Limit of {limit:,} steps",
 		)
-	ax.set_xscale("log", base=2)
-	ax.set_xticks(agentConfigurations)
-	ax.set_xticklabels([str(t) for t in agentConfigurations])
-	ax.minorticks_off()
+	log2AxisScale(ax, agentConfigurations)
 
 	ax.set_ylim(top=101)
 	ax.set_xlabel("Number of Robots")
@@ -459,9 +451,85 @@ def plotCleaningPercentageHeatmap(
 	finishFigure(fig, resultsDir, "cleaning_percentage_heatmap.png", showPlot)
 
 
+# Purpose: build the table behind the cleaning percentage comparison plot: average final % of clean cells per robot count, one row per step limit.
+# Parameters: summaries, list of summary tables (one per step limit).
+# Returns: DataFrame with one row per step limit (sorted) and one column per robot count.
+def cleaningPercentageTable(summaries):
+	combined = pd.concat(summaries, ignore_index=True)
+	return combined.pivot_table(
+		index="numAgents", columns="MaxStepsLimit", values="AverageCleaningPercentage"
+	).round(2)
+
+
+# Purpose: build the table behind the dirt comparison plot: average steps and total moves per robot count, one row per dirt percentage.
+# Parameters: summaries, list of summary tables (one per dirt percentage).
+# Returns: DataFrame with one row per dirt percentage (sorted) and one column per robot count.
+def dirtTable(summaries, value="AverageSteps"):
+	combined = pd.concat(summaries, ignore_index=True)
+	table = combined.pivot_table(index="numAgents", columns="DirtyPct", values=value)
+	table.columns = [f"{pct:.0%} dirty" for pct in table.columns]
+	return table.round(1)
+
+
+# Purpose: plot the cleaning time and total movements per robot count, one line per dirt percentage.
+# Parameters: summaries, list of summary tables (one per dirt percentage), agentConfigurations, X axis values,
+#             resultsDir, folder where the PNG is saved (None = do not save), showPlot, show the figure.
+# Returns: nothing.
+def plotDirtComparison(summaries, agentConfigurations, resultsDir=None, showPlot=False):
+	"""Cleaning time and total movements per robot count, one line per dirt percentage."""
+	summaries = sorted(summaries, key=lambda s: s["DirtyPct"].iloc[0])
+	# Dirt percentage is ordered, so use one hue from light (little dirt) to dark (much dirt)
+	ramp = ["#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+	colors = (
+		ramp[-len(summaries) :]
+		if len(summaries) <= len(ramp)
+		else plt.cm.Blues(np.linspace(0.35, 1, len(summaries)))
+	)
+
+	fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.8))
+	for color, summary in zip(colors, summaries):
+		label = f"{summary['DirtyPct'].iloc[0]:.0%} dirty"
+		ax1.errorbar(
+			summary["numAgents"],
+			summary["AverageSteps"],
+			yerr=summary["CI95Steps"],
+			fmt="o-",
+			color=color,
+			capsize=3,
+			label=label,
+		)
+		ax2.errorbar(
+			summary["numAgents"],
+			summary["AverageMoves"],
+			yerr=summary["CI95Moves"],
+			fmt="o-",
+			color=color,
+			capsize=3,
+			label=label,
+		)
+
+	ax1.set_yscale("log")
+	log2AxisScale(ax1, agentConfigurations)
+	ax1.set_yticks([250, 500, 1_000, 2_500, 5_000])
+	ax1.set_yticklabels(["250", "500", "1,000", "2,500", "5,000"])
+	ax1.yaxis.set_minor_formatter(plt.NullFormatter())
+	ax1.set_xlabel("Number of Robots")
+	ax1.set_ylabel("Steps until clean (log scale)")
+	ax1.set_title("Cleaning Time (mean, 95% CI)")
+
+	log2AxisScale(ax2, agentConfigurations)
+	ax2.set_ylim(bottom=0)
+	ax2.set_xlabel("Number of Robots")
+	ax2.set_ylabel("Total Movements (all robots)")
+	ax2.set_title("Total Movements (mean, 95% CI)")
+	ax2.legend(title="Initial dirt", loc="upper left", bbox_to_anchor=(1.02, 1))
+
+	finishFigure(fig, resultsDir, "dirt_comparison.png", showPlot)
+
+
 if __name__ == "__main__":
-	AGENT_CONFIGURATIONS = [1, 2, 4, 8]
-	MAX_STEPS = 50_000
-	summaryDf, agentConfig, resultsDir = runExperiments(AGENT_CONFIGURATIONS, MAX_STEPS)
+	agentConfigurations = [1, 2, 4, 8]
+	maxSteps = 50_000
+	summaryDf, agentConfig, resultsDir = runExperiments(agentConfigurations, maxSteps)
 	plotAverageSteps(summaryDf, agentConfig, resultsDir)
 	plotAverageMovements(summaryDf, agentConfig, resultsDir)
