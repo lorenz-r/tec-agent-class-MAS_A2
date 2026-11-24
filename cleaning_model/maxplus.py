@@ -1,12 +1,11 @@
 # Description: Max-Plus message passing on a coordination graph (Guestrin, 2002; Kok & Vlassis, 2006).
-
 # Authors:
 #   Alan Oropeza Saucedo - A01661614
 #   Armando Vásquez Ambrocio - A01669283
 #   David Alejandro Goncalves Pestana - A01669122
 #   Hugo Fernando Rodríguez Montiel - A01782589
 #   Lorenz Rasbach - A01832437
-# Date: 2026-11-21s
+# Date: 2026-11-21
 
 import numpy as np
 

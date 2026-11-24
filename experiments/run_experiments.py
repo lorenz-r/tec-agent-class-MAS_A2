@@ -56,9 +56,11 @@ def ci95(values):
 
 
 # Purpose: run the sweep (30 seeds per configuration) with mesa.batch_run.
-# Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run.
+# Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run,
+#             dirtyPct, fraction of initially dirty cells, nSeeds, number of seeds per configuration,
+#             coordination, "reactive" (random moves) or "maxplus" (coordination graph).
 # Returns: DataFrame with one row per run (batch_run returns one row per agent, so the extras are dropped).
-def runSweep(agentConfigurations, maxSteps, dirtyPct=0.5, nSeeds=30):
+def runSweep(agentConfigurations, maxSteps, dirtyPct=0.5, nSeeds=30, coordination="reactive"):
 	results = mesa.batch_run(
 		CleaningModel,
 		parameters={
@@ -67,6 +69,7 @@ def runSweep(agentConfigurations, maxSteps, dirtyPct=0.5, nSeeds=30):
 			"dirtyPct": dirtyPct,
 			"maxSteps": maxSteps,
 			"numAgents": agentConfigurations,
+			"coordination": coordination,
 		},
 		rng=range(nSeeds),
 		data_collection_period=-1,
@@ -136,10 +139,12 @@ def saveResults(df, summaryDf):
 
 
 # Purpose: run the whole experiment: sweep, statistics, speedup and CSV files.
-# Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run.
+# Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run,
+#             dirtyPct, fraction of initially dirty cells, nSeeds, number of seeds per configuration,
+#             coordination, "reactive" (M1 baseline, default) or "maxplus".
 # Returns: tuple (summary table per agent count, agentConfigurations, results folder).
-def runExperiments(agentConfigurations=None, maxSteps=50_000, dirtyPct=0.5, nSeeds=30):
-	df = runSweep(agentConfigurations, maxSteps, dirtyPct, nSeeds)
+def runExperiments(agentConfigurations=None, maxSteps=50_000, dirtyPct=0.5, nSeeds=30, coordination="reactive"):
+	df = runSweep(agentConfigurations, maxSteps, dirtyPct, nSeeds, coordination)
 	summaryDf = addSpeedup(buildSummary(df), df)
 	summaryDf["MaxStepsLimit"] = maxSteps
 	summaryDf["DirtyPct"] = dirtyPct

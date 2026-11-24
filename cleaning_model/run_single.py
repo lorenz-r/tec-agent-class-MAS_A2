@@ -19,6 +19,7 @@ HEIGHT = 10
 N_AGENTS = 5
 MAX_STEPS = 500
 DIRTY_PCT = 0.3
+COORDINATION = "maxplus"
 
 if __name__ == "__main__":
 	model = CleaningModel(
@@ -27,6 +28,7 @@ if __name__ == "__main__":
 		numAgents=N_AGENTS,
 		maxSteps=MAX_STEPS,
 		dirtyPct=DIRTY_PCT,
+		coordination=COORDINATION,
 	)
 	results = model.run()
 	print(results)
