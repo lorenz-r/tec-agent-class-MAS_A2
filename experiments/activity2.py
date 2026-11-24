@@ -97,11 +97,11 @@ def saveActivity2Results(df, summaryDf):
 	summaryDf.to_csv(resultsDir / "activity2_summary.csv", index=False)
 
 
-# Purpose: print the results table with "mean ± std" columns.
+# Purpose: build the results table for the report, with "mean ± std" text columns.
 # Parameters: summaryDf, results table from buildActivity2Summary.
-# Returns: nothing.
-def printActivity2Table(summaryDf):
-	table = pd.DataFrame(
+# Returns: DataFrame with one row per (initial dirt, method, number of robots).
+def buildActivity2Table(summaryDf):
+	return pd.DataFrame(
 		{
 			"Dirty": summaryDf["InitialDirty"],
 			"Method": summaryDf["coordination"].map(MODE_LABELS),
@@ -124,7 +124,13 @@ def printActivity2Table(summaryDf):
 			],
 		}
 	)
-	print(table.to_string(index=False))
+
+
+# Purpose: print the results table with "mean ± std" columns.
+# Parameters: summaryDf, results table from buildActivity2Summary.
+# Returns: nothing.
+def printActivity2Table(summaryDf):
+	print(buildActivity2Table(summaryDf).to_string(index=False))
 
 
 # Purpose: grouped bar chart of the success probability versus the number of robots, one bar per coordination mode.
