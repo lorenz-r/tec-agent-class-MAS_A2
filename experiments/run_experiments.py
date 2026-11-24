@@ -58,14 +58,23 @@ def ci95(values):
 # Purpose: run the sweep (30 seeds per configuration) with mesa.batch_run.
 # Parameters: agentConfigurations, list with the agent counts to test, maxSteps, maximum time of each run,
 #             dirtyPct, fraction of initially dirty cells, nSeeds, number of seeds per configuration,
-#             coordination, "reactive" (random moves) or "maxplus" (coordination graph).
+#             coordination, "reactive" (random moves) or "maxplus" (coordination graph),
+#             width, height, room size (default 20 x 20, the M1 room).
 # Returns: DataFrame with one row per run (batch_run returns one row per agent, so the extras are dropped).
-def runSweep(agentConfigurations, maxSteps, dirtyPct=0.5, nSeeds=30, coordination="reactive"):
+def runSweep(
+	agentConfigurations,
+	maxSteps,
+	dirtyPct=0.5,
+	nSeeds=30,
+	coordination="reactive",
+	width=20,
+	height=20,
+):
 	results = mesa.batch_run(
 		CleaningModel,
 		parameters={
-			"width": 20,
-			"height": 20,
+			"width": width,
+			"height": height,
 			"dirtyPct": dirtyPct,
 			"maxSteps": maxSteps,
 			"numAgents": agentConfigurations,
