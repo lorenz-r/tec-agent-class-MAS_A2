@@ -14,11 +14,12 @@ SCRIPT_LOCATION = Path(__file__).parent
 ROOT = SCRIPT_LOCATION.parent
 RESULTS_DIR = ROOT / "results"
 
-WIDTH = 10
-HEIGHT = 10
+WIDTH = 20
+HEIGHT = 30
 N_AGENTS = 5
 MAX_STEPS = 500
-DIRTY_PCT = 0.3
+N_DIRTY = 100
+COORDINATION = "maxplus"
 
 if __name__ == "__main__":
 	model = CleaningModel(
@@ -26,7 +27,8 @@ if __name__ == "__main__":
 		height=HEIGHT,
 		numAgents=N_AGENTS,
 		maxSteps=MAX_STEPS,
-		dirtyPct=DIRTY_PCT,
+		dirtyPct=N_DIRTY / (WIDTH * HEIGHT),
+		coordination=COORDINATION,
 	)
 	results = model.run()
 	print(results)
